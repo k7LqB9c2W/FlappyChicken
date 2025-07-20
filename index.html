@@ -2,11 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Flappy Bird Basic</title>
+  <title>Flappy Bird Basic (Spacebar + Responsive)</title>
   <style>
-    /* full-screen canvas with sky‑blue background */
-    html, body { margin:0; padding:0; overflow:hidden; background:#70c5ce; }
-    canvas { display:block; margin:0 auto; background:#70c5ce; }
+    /* remove scrollbars, full‑bleed background */
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #70c5ce;
+    }
+    /* internal resolution stays 320×480, but we scale it to fit */
+    canvas {
+      display: block;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #70c5ce;
+    }
   </style>
 </head>
 <body>
@@ -16,21 +29,28 @@
   const canvas = document.getElementById('game');
   const ctx    = canvas.getContext('2d');
   const W = 320, H = 480;
-  canvas.width = W; canvas.height = H;
+  canvas.width  = W;
+  canvas.height = H;
 
   let frame = 0;
   const state = { getReady:0, game:1, over:2, current:0 };
 
-  // ——— Input ———
-  canvas.addEventListener('click', _ => {
+  // ——— Input: click AND spacebar ———
+  function handleFlapOrRestart() {
     if (state.current === state.getReady) {
       state.current = state.game;
     } else if (state.current === state.game) {
       bird.flap();
     } else if (state.current === state.over) {
-      // restart
       resetGame();
       state.current = state.getReady;
+    }
+  }
+  canvas.addEventListener('click',  handleFlapOrRestart);
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      handleFlapOrRestart();
     }
   });
 
@@ -38,28 +58,24 @@
   const bird = {
     x: 50, y:150, r:12,
     gravity: 0.25, lift: 4.6, dy:0,
-
     draw() {
       ctx.fillStyle = '#FF0';
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.r, 0, 2*Math.PI);
       ctx.fill();
     },
-
     update() {
       if (state.current === state.getReady) {
         this.y = 150; this.dy = 0;
       } else {
         this.dy += this.gravity;
         this.y  += this.dy;
-        // hit ground
         if (this.y + this.r > H) {
           this.y = H - this.r;
           state.current = state.over;
         }
       }
     },
-
     flap() {
       this.dy = -this.lift;
     }
@@ -67,50 +83,34 @@
 
   // ——— Pipes ———
   const pipes = {
-    _list: [],
-    w: 50, gap: 120, speed: 2,
-
-    reset() {
-      this._list = [];
-    },
-
+    _list: [], w:50, gap:120, speed:2,
+    reset() { this._list = []; },
     draw() {
       ctx.fillStyle = '#0F0';
       this._list.forEach(p => {
-        // top
         ctx.fillRect(p.x, p.y, this.w, p.h);
-        // bottom
         ctx.fillRect(p.x, p.y + p.h + this.gap, this.w, H);
       });
     },
-
     update() {
       if (state.current !== state.game) return;
-      // spawn every 90 frames
       if (frame % 90 === 0) {
         const h = 100 + Math.random() * (H - this.gap - 200);
         this._list.push({ x: W, y: 0, h });
       }
-      // move & collision
-      this._list.forEach((p, i) => {
+      this._list.forEach((p,i) => {
         p.x -= this.speed;
-
         // collision?
         if (
           bird.x + bird.r > p.x &&
           bird.x - bird.r < p.x + this.w &&
-          (
-            bird.y - bird.r < p.h ||
-            bird.y + bird.r > p.h + this.gap
-          )
-        ) {
-          state.current = state.over;
-        }
-
-        // off-screen → score + remove
+          (bird.y - bird.r < p.h ||
+           bird.y + bird.r > p.h + this.gap)
+        ) state.current = state.over;
+        // off‑screen
         if (p.x + this.w < 0) {
           score.val++;
-          this._list.splice(i, 1);
+          this._list.splice(i,1);
         }
       });
     }
@@ -118,13 +118,11 @@
 
   // ——— Score ———
   const score = {
-    val: 0, best: 0,
-
+    val:0, best:0,
     draw() {
       ctx.fillStyle = '#FFF';
-      ctx.font = (state.current===state.game?'35px':'25px') + ' Arial';
+      ctx.font = (state.current===state.game?'35px':'25px')+' Arial';
       ctx.textAlign = 'center';
-
       if (state.current === state.game) {
         ctx.fillText(this.val, W/2, 50);
       } else if (state.current === state.over) {
@@ -132,44 +130,35 @@
         ctx.fillText(`Best: ${this.best}`, W/2, H/2 + 20);
       }
     },
-
     reset() {
       this.best = Math.max(this.val, this.best);
       this.val = 0;
     }
   };
 
-  // ——— Draw & Update Loop ———
+  // ——— Main Loop ———
   function draw() {
-    // clear
-    ctx.fillStyle = '#70c5ce';
-    ctx.fillRect(0,0,W,H);
-
+    ctx.clearRect(0,0,W,H);
     pipes.draw();
     bird.draw();
     score.draw();
   }
-
   function update() {
     bird.update();
     pipes.update();
   }
-
   function loop() {
     update();
     draw();
     frame++;
     requestAnimationFrame(loop);
   }
-
   function resetGame() {
     pipes.reset();
     score.reset();
     bird.y = 150; bird.dy = 0;
     frame = 0;
   }
-
-  // ——— Start! ———
   loop();
   </script>
 </body>
